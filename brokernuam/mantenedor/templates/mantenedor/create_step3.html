@@ -1,0 +1,22 @@
+{% extends 'mantenedor/base.html' %}
+
+{% block title %}Crear Calificación - Paso 3{% endblock %}
+
+{% block content %}
+<h2>Crear Calificación - Paso 3: Confirmar Factores</h2>
+
+<h3>Factores Calculados:</h3>
+<ul>
+    {% for key, value in factores.items %}
+    <li>{{ key }}: {{ value }}</li>
+    {% endfor %}
+</ul>
+
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="3">
+    <button type="submit" class="btn btn-success">Guardar</button>
+</form>
+
+<a href="{% url 'qualification_list' %}">Volver al listado</a>
+{% endblock %}
