@@ -130,7 +130,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = 'api-static/'
 # Directorio donde 'collectstatic' reunirá los archivos para producción
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
@@ -156,3 +156,4 @@ LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'
 
 CORS_ALLOW_ALL_ORIGINS = True
+STATIC_ROOT = '/app/static'

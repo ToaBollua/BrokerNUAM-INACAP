@@ -1,11 +1,12 @@
-import axios from 'axios';
+// frontend/src/index.js
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import 'bootstrap/dist/css/bootstrap.min.css'; // <-- IMPORTANTE
+import App from './App';
 
-// URL de backend configurada por Docker/Env
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://backend:8000/api/';
-
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  withCredentials: true,
-});
-
-export default api;
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);

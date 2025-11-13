@@ -23,13 +23,16 @@ COPY --from=builder /usr/local/bin/gunicorn /usr/local/bin/gunicorn
 
 COPY . .
 
-# CORRECCIÓN: El PYTHONPATH debe ser /app para que python encuentre 'brokernuam'
 ENV PYTHONPATH=/app:$PYTHONPATH
 
-# CORRECCIÓN: La ruta a manage.py es 'brokernuam/manage.py'
+# CORRECCIÓN: Ejecutar collectstatic AQUÍ, como root,
+# y apuntar al volumen que definiremos en docker-compose.
+RUN mkdir -p /app/static
 RUN python brokernuam/manage.py collectstatic --noinput
+
+# CORRECCIÓN: Dar permisos al usuario 'app' sobre la app y los estáticos
+RUN chown -R app:app /app
 
 USER app
 
-# Este CMD se usará si eliminas 'command:' del docker-compose.yml
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "brokernuam.wsgi:application"]
