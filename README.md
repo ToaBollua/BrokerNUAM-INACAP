@@ -1,96 +1,137 @@
-# Mantenedor de Calificaciones Tributarias - NUAM
+# Proyecto: Mantenedor de Calificaciones NUAM
 
-Este proyecto es una aplicación Django que implementa un mantenedor de calificaciones tributarias para NUAM, permitiendo a los corredores gestionar calificaciones tributarias de manera segura y eficiente.
+## Descripción
 
-## Características
+Sistema de mantenedor de calificaciones tributarias desarrollado en Django 5.2, utilizando PostgreSQL como base de datos.
 
-- **Multi-tenancy**: Datos segregados por corredor, con datos de bolsa como base.
-- **Gestión CRUD**: Crear, leer, actualizar y eliminar calificaciones.
-- **Carga Masiva**: Importar calificaciones desde archivos CSV (montos o factores).
-- **Cálculo de Factores**: Conversión automática de montos a factores tributarios.
-- **Auditoría**: Registro de todas las operaciones para cumplimiento normativo.
-- **Interfaz Web**: Frontend simple con Bootstrap.
-- **Autenticación**: Sistema de login requerido.
+## Requisitos Previos (Generales)
 
-## Requisitos
+* Python 3.11+
+* `python-venv` (o `python3-venv`)
+* PostgreSQL (Servicio local instalado y corriendo)
 
-- Python 3.8+
-- Django 5.2+
-- Base de datos: SQLite (por defecto), escalable a PostgreSQL/Oracle
+---
 
-## Instalación
+## Instalación Automatizada (Linux / Arch)
 
-1. Clona el repositorio:
-   ```
-   git clone <url-del-repositorio>
-   cd BrokerNUAM-INACAP
-   ```
+### 1. Requisitos (Arch Linux)
 
-2. Activa el entorno virtual (ya configurado):
-   ```
-   .\venv\Scripts\activate  # En Windows
-   # o
-   source venv/bin/activate  # En Linux/Mac
-   ```
+```bash
+sudo pacman -Syu postgresql python-venv
+```
 
-3. Instala las dependencias:
-   ```
-   pip install -r requirements.txt
-   ```
+### 2. Configuración de PostgreSQL (Arch)
 
-4. Ejecuta las migraciones:
-   ```
-   cd brokernuam
-   python manage.py makemigrations
-   python manage.py migrate
-   ```
+Asegúrate de que el servicio de PostgreSQL esté iniciado y habilitado:
 
-5. Crea un superusuario:
-   ```
-   python manage.py createsuperuser
-   ```
+```bash
+# Inicializa la base de datos (solo si es la primera vez)
+sudo -u postgres initdb --locale $LANG -E UTF8 -D /var/lib/postgres/data
 
-6. Ejecuta el servidor:
-   ```
-   python manage.py runserver
-   ```
+# Inicia y habilita el servicio
+sudo systemctl enable --now postgresql
+```
 
-7. Accede a la aplicación en http://127.0.0.1:8000/
+### 3. Ejecución del Script (Arch)
 
-## Uso
+Este script (`setup-arch.sh`) configurará la BD, el `venv`, instalará dependencias, creará el `.env` y las migraciones, y generará un superusuario (`admin`/`admin`).
 
-### Autenticación
-- Inicia sesión con tu usuario y contraseña.
-- Los datos se segregan por corredor.
+```bash
+# 1. Da permisos de ejecución al script
+chmod +x setup-arch.sh
 
-### Funcionalidades Principales
-- **Lista de Calificaciones**: Visualiza y filtra calificaciones.
-- **Crear Calificación**: Proceso de 3 pasos (datos básicos, montos, factores).
-- **Actualizar/Eliminar**: Modifica o borra calificaciones existentes.
-- **Carga Masiva**: Sube archivos CSV para importar múltiples calificaciones.
+# 2. Ejecuta el script (requerirá tu contraseña de sudo para Postgres)
+./setup.sh
+```
 
-### Formato CSV para Carga Masiva
-- Columnas: mercado, instrumento, fecha_pago, ejercicio, amount1, amount2, ..., amount29 (para montos)
-- O: mercado, instrumento, fecha_pago, ejercicio, factor1, factor2, ..., factor29 (para factores)
+---
 
-## Arquitectura
+## Instalación Automatizada (Linux / Debian / Ubuntu)
 
-- **Backend**: Django con vistas basadas en clases y funciones.
-- **Frontend**: Templates HTML con Bootstrap.
-- **Base de Datos**: Modelo relacional con JSON para montos/factores.
-- **Seguridad**: Autenticación Django, multi-tenancy por corredor.
+### 1. Requisitos (Debian/Ubuntu)
 
-## Desarrollo
+```bash
+sudo apt-get update
+sudo apt-get install -y postgresql postgresql-client python3-venv
+```
 
-- El cálculo de factores es un placeholder; implementar lógica real basada en homologaciones del documento.
-- Datos de bolsa deben cargarse manualmente o vía admin.
+### 2. Configuración de PostgreSQL (Debian)
 
-## Contribución
+El servicio debería iniciarse automáticamente tras la instalación.
 
-1. Crea una rama para tu feature.
-2. Realiza commits descriptivos.
-3. Envía un pull request.
+```bash
+# Verifica que el servicio esté corriendo
+sudo systemctl enable --now postgresql
+```
 
-## Licencia
+### 3. Ejecución del Script (Debian)
 
-[Especificar licencia si aplica]
+Este script (`setup-debian.sh`) configurará la BD, el `venv`, instalará dependencias, creará el `.env` y las migraciones, y generará un superusuario (`admin`/`admin`).
+
+```bash
+# 1. Da permisos de ejecución al script
+chmod +x setup-debian.sh
+
+# 2. Ejecuta el script (requerirá tu contraseña de sudo para Postgres)
+./setup-debian.sh
+```
+
+---
+
+## Instalación Automatizada (Windows / PowerShell)
+
+### 1. Requisitos (Windows)
+
+1.  Haber instalado **Python 3.11+** (asegúrate de que `python` esté en tu `PATH`).
+2.  Haber instalado **PostgreSQL** (ej. con el instalador de EDB) y asegurarte de que los binarios (`psql`, `createuser`) estén en tu `PATH` del sistema.
+3.  Tener el servicio de PostgreSQL corriendo.
+
+### 2. Configuración de PowerShell
+
+**A. Política de Ejecución:**
+PowerShell bloquea los scripts por defecto. Debes permitir la ejecución de scripts locales. Abre PowerShell *como Administrador* y ejecuta:
+
+```powershell
+Set-ExecutionPolicy RemoteSigned
+# (Presiona 'Y' o 'A' para aceptar)
+```
+
+**B. Contraseña de Administrador de Postgres:**
+El script necesita la contraseña de tu superusuario `postgres` (la que definiste al instalar PostgreSQL). Abre una terminal normal de PowerShell y establécela como una variable de entorno temporal:
+
+```powersV
+# Reemplaza 'tu_contraseña' por tu contraseña real
+$env:PGPASSWORD = "tu_contraseña_de_postgres"
+```
+
+### 3. Ejecución del Script (Windows)
+
+En la misma terminal donde estableciste `PGPASSWORD`, ejecuta el script de PowerShell:
+
+```powershell
+.\setup.ps1
+```
+
+---
+
+## Ejecución (Todos los Sistemas)
+
+Una vez finalizada la instalación:
+
+```bash
+# 1. Activa el entorno virtual
+# (Linux/Mac)
+source venv/bin/activate
+# (Windows PowerShell)
+.\venv\Scripts\Activate.ps1
+
+# 2. Inicia el servidor
+python manage.py runserver
+```
+
+## Acceso
+
+* **Aplicación:** `http://127.0.0.1:8000/`
+* **Admin:** `http://127.0.0.1:8000/admin/`
+* **Superusuario:** `admin`
+* **Contraseña:** `admin`
