@@ -1,338 +1,407 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from django.urls import reverse_lazy
 from django.views.generic import ListView, DeleteView
+from django.urls import reverse_lazy
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib import messages
 from django.db import transaction
-from django.utils.timezone import make_aware
-from django.http import JsonResponse
+from django.db.models import Q
+from .models import Qualification, AuditLog, Broker
+from .forms import QualificationForm, QualificationAmountsForm, BulkLoadForm
+from decimal import Decimal, InvalidOperation
 import csv
 import io
-from datetime import date, datetime
-from decimal import Decimal, InvalidOperation
+from datetime import datetime
+from django.contrib.auth.forms import UserCreationForm
+from django.views.generic import CreateView
+from django.urls import reverse_lazy
 
-from .models import Qualification, AuditLog, Broker
-from .forms import QualificationForm, QualificationAmountsForm, QualificationFactorsForm, BulkLoadForm
+# --- LÓGICA DE NEGOCIO Y PARSEO (Trasplantado) ---
+# Funciones extraídas de tu 'views.py' y el de tu compañero
 
-
-# ------------ Utilidades ------------
-
-def _json_safe(value):
-    """Convierte recursivamente a tipos serializables por JSONSerializer."""
-    if isinstance(value, (date, datetime)):
-        # guardamos fecha/fecha-hora como ISO 8601
-        return value.isoformat()
-    if isinstance(value, Decimal):
-        return str(value)
-    if isinstance(value, dict):
-        return {k: _json_safe(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_json_safe(v) for v in value]
-    return value
-
-
-def _parse_date_any(s):
-    """Intenta parsear múltiples formatos de fecha, devuelve date o None."""
-    if not s:
-        return None
-    s = str(s).strip()
-    # Intento ISO (YYYY-MM-DD)
+def _to_float_safe(value):
+    """
+    Intenta convertir un valor a Decimal. Devuelve 0.0 si falla.
+    Extraído de la lógica de carga masiva de tu compañero.
+    """
+    if value is None:
+        return Decimal('0.0')
     try:
-        return date.fromisoformat(s)
-    except Exception:
-        pass
-    # Intento DD/MM/YYYY
+        # Reemplazar comas por puntos si es necesario (formato CSV)
+        cleaned_value = str(value).strip().replace(',', '.')
+        if cleaned_value == '':
+            return Decimal('0.0')
+        return Decimal(cleaned_value)
+    except (InvalidOperation, ValueError):
+        return Decimal('0.0')
+
+def parse_csv(csv_file):
+    """
+    Parsea un archivo CSV en memoria y lo convierte en una lista de diccionarios.
+    Extraído del views.py de tu compañero.
+    """
+    data = []
     try:
-        return datetime.strptime(s, "%d/%m/%Y").date()
-    except Exception:
-        pass
-    # Intento MM/DD/YYYY
-    try:
-        return datetime.strptime(s, "%m/%d/%Y").date()
-    except Exception:
-        pass
-    return None
+        decoded_file = csv_file.read().decode('utf-8-sig')
+        io_string = io.StringIO(decoded_file)
+        # Lee la primera línea para detectar el delimitador (ej. ; o ,)
+        sniffer = csv.Sniffer()
+        dialect = sniffer.sniff(io_string.read(1024))
+        io_string.seek(0)
+        
+        reader = csv.reader(io_string, dialect=dialect)
+        
+        header = [h.strip() for h in next(reader)]
+        
+        for row in reader:
+            if not any(row):  # Omitir filas vacías
+                continue
+            data.append(dict(zip(header, row)))
+            
+    except Exception as e:
+        raise ValueError(f"Error al parsear el CSV: {e}")
+    return data
 
+def CalculoFactores(montos_data):
+    """
+    Lógica de negocio principal para convertir Montos a Factores.
+    Extraído y adaptado del views.py de tu compañero.
+    
+    Valida que la suma de factores 8-16 no exceda 1.
+    """
+    
+    # 1. Convertir todos los montos a Decimal
+    monto = {}
+    for i in range(1, 30):
+        # Asume que montos_data usa 'amount1', 'amount2', etc. para CRUD
+        # o 'MSJ 1948 - C1' para carga masiva
+        key_crud = f'amount{i}'
+        key_csv = f'MSJ 1948 - C{i}'
+        
+        if key_crud in montos_data:
+            monto[i] = _to_float_safe(montos_data.get(key_crud, 0))
+        elif key_csv in montos_data:
+             monto[i] = _to_float_safe(montos_data.get(key_csv, 0))
+        else:
+            monto[i] = Decimal('0.0')
 
-def _to_float_safe(v, default=0.0):
-    if v is None or v == "":
-        return default
-    try:
-        return float(v)
-    except (ValueError, TypeError):
-        # intentar con Decimal por si viene con coma, etc.
-        try:
-            return float(Decimal(str(v).replace(",", ".")))
-        except (InvalidOperation, ValueError, TypeError):
-            return default
+    factores = {}
+    
+    # Asegurarse de que el monto1 (Divisor) no sea cero
+    divisor = monto[1]
+    if divisor == Decimal('0.0'):
+        # Si el monto 1 es cero, todos los factores calculados son cero
+        for i in range(8, 30):
+            factores[f'factor{i}'] = Decimal('0.0')
+        return factores # Retorna factores en cero (pasa la validación)
 
+    # 2. Lógica de cálculo (basada en el views.py de tu compañero)
+    factores['factor8'] = (monto[8] + monto[9] + monto[10] + monto[11] + monto[12] + monto[13]) / divisor
+    factores['factor9'] = (monto[14] + monto[15]) / divisor
+    factores['factor10'] = (monto[16] + monto[17] + monto[18]) / divisor
+    factores['factor11'] = (monto[19] + monto[20] + monto[21]) / divisor
+    factores['factor12'] = (monto[22] + monto[23]) / divisor
+    factores['factor13'] = monto[24] / divisor
+    factores['factor14'] = monto[25] / divisor
+    factores['factor15'] = monto[26] / divisor
+    factores['factor16'] = (monto[27] + monto[28]) / divisor
+    
+    # Factores 17-29 son copia directa de montos
+    for i in range(17, 30):
+        factores[f'factor{i}'] = monto[i]
 
-def _sum_range(d, prefix, start, end):
-    """Suma d[f'{prefix}{i}'] para i en [start, end] como floats seguros."""
-    total = 0.0
-    for i in range(start, end + 1):
-        total += _to_float_safe(d.get(f"{prefix}{i}", 0))
-    return total
+    # 3. Validación (basada en el views.py de tu compañero)
+    suma_factores_8_16 = sum(factores.get(f'factor{i}', Decimal('0.0')) for i in range(8, 17))
+    
+    if round(suma_factores_8_16, 4) > 1:
+        raise ValueError("La suma de factores 8 a 16 excede 1")
 
+    return factores
 
-# ------------ Listado ------------
+# --- VISTAS ---
 
 class QualificationListView(LoginRequiredMixin, ListView):
     model = Qualification
     template_name = 'mantenedor/qualification_list.html'
     context_object_name = 'qualifications'
-    paginate_by = 10
 
     def get_queryset(self):
+        """
+        Sobrescrito para implementar segregación de datos y manejo de superusuarios.
+        """
         queryset = super().get_queryset()
-        broker = self.request.user.userprofile.broker
-        # Incluye datos de bolsa e incluye datos del broker, con prioridad broker
-        bolsa_qs = queryset.filter(is_bolsa=True)
-        broker_qs = queryset.filter(broker=broker)
-        combined = {}
-        for q in bolsa_qs:
-            key = (q.mercado, q.instrumento, q.fecha_pago, q.ejercicio)
-            combined[key] = q
-        for q in broker_qs:
-            key = (q.mercado, q.instrumento, q.fecha_pago, q.ejercicio)
-            combined[key] = q
-        # ListView acepta listas y la paginación funciona con listas
-        return list(combined.values())
+
+        if hasattr(self.request.user, 'userprofile'):
+            # Usuario normal con perfil de corredor
+            broker = self.request.user.userprofile.broker
+            
+            # Obtener datos base de la bolsa (is_bolsa=True)
+            bolsa_qs = queryset.filter(is_bolsa=True)
+            # Obtener datos específicos del corredor
+            broker_qs = queryset.filter(broker=broker)
+
+            # Lógica de "override": Los datos del corredor pisan a los de la bolsa
+            combined = {}
+            # 1. Cargar datos de la bolsa
+            for q in bolsa_qs:
+                key = (q.mercado, q.instrumento, q.fecha_pago, q.ejercicio)
+                combined[key] = q
+            # 2. Sobrescribir con datos del corredor
+            for q in broker_qs:
+                key = (q.mercado, q.instrumento, q.fecha_pago, q.ejercicio)
+                combined[key] = q
+            
+            return list(combined.values())
+        
+        elif self.request.user.is_superuser:
+            # Superadmin (sin perfil de corredor), que vea todo
+            return queryset.all()
+        
+        else:
+            # Caso anómalo: usuario logueado sin perfil, no debe ver nada
+            return queryset.none()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['form'] = BulkLoadForm()
         return context
 
-
-# ------------ Crear (flujo por pasos) ------------
-
 @login_required
 def create_qualification(request):
+    """
+    Vista para crear una nueva calificación (CRUD).
+    Implementa la lógica de cálculo real.
+    """
     if request.method == 'POST':
-        step = request.POST.get('step', '1')
+        form = QualificationForm(request.POST)
+        amounts_form = QualificationAmountsForm(request.POST)
+        
+        if form.is_valid() and amounts_form.is_valid():
+            qualification = form.save(commit=False)
+            qualification.broker = request.user.userprofile.broker
+            qualification.origen = 'Manual'
+            
+            montos_data = amounts_form.cleaned_data
+            # Guardar montos en JSON (convertir Decimal a string)
+            qualification.montos = {k: str(v if v is not None else '0.0') for k, v in montos_data.items()}
 
-        # PASO 1: campos base (incluye fecha_pago, etc.)
-        if step == '1':
-            form = QualificationForm(request.POST)
-            if form.is_valid():
-                # Guardar en sesión de forma JSON-segura
-                safe_data = _json_safe(form.cleaned_data)
-                request.session['qualification_data'] = safe_data
-                request.session.modified = True
-                return render(request, 'mantenedor/create_step2.html', {
-                    'form': QualificationAmountsForm()
-                })
-            else:
-                return render(request, 'mantenedor/create_step1.html', {'form': form})
-
-        # PASO 2: montos -> calcular factores (placeholder o fórmula real)
-        elif step == '2':
-            form = QualificationAmountsForm(request.POST)
-            if form.is_valid():
-                amounts = {k: _to_float_safe(v) for k, v in form.cleaned_data.items() if v is not None}
-                qual_data = request.session.get('qualification_data', {})
-                if not qual_data:
-                    messages.error(request, 'La sesión del paso 1 expiró. Vuelve a iniciar el flujo.')
-                    return redirect('qualification_create')  # ajusta al nombre real si corresponde
-
-                qual_data['montos'] = amounts
-
-                # Calcula factores (placeholder conservado, puedes reemplazar por el cálculo real)
-                factores = {f'factor{i}': _to_float_safe(amounts.get(f'amount{i}', 0)) for i in range(1, 30)}
-
-                # Validación: suma de factores 8..16 <= 1
-                sum_f = _sum_range(factores, 'factor', 8, 16)
-                if sum_f > 1.0 + 1e-9:
-                    messages.error(request, 'La suma de factores 8 a 16 excede 1.')
-                    return render(request, 'mantenedor/create_step2.html', {'form': form})
-
-                qual_data['factores'] = factores
-                # guardar de vuelta de forma segura
-                request.session['qualification_data'] = _json_safe(qual_data)
-                request.session.modified = True
-
-                return render(request, 'mantenedor/create_step3.html', {'factores': factores})
-            else:
-                return render(request, 'mantenedor/create_step2.html', {'form': form})
-
-        # PASO 3: persistir en BD
-        elif step == '3':
-            qual_data = request.session.get('qualification_data', {})
-            if not qual_data:
-                messages.error(request, 'La sesión expiró. Vuelve a iniciar la creación.')
-                return redirect('qualification_create')
-
-            broker = request.user.userprofile.broker
-
-            # Convertir de vuelta tipos sensibles
-            # fecha_pago viene como string ISO del paso 1; reconvertimos a date
-            if 'fecha_pago' in qual_data:
-                qual_data['fecha_pago'] = _parse_date_any(qual_data['fecha_pago'])
-
-            # Campos JSON (montos, factores) ya están en tipos nativos serializables
-            montos = qual_data.pop('montos', None)
-            factores = qual_data.pop('factores', None)
-
-            # Crear la calificación
-            qual = Qualification.objects.create(
-                broker=broker,
-                **qual_data,
-            )
-            if montos is not None:
-                qual.montos = montos
-            if factores is not None:
-                qual.factores = factores
-            qual.save()
-
-            AuditLog.objects.create(
-                user=request.user,
-                action='create',
-                qualification=qual,
-                details='Manual creation'
-            )
-
-            # Limpiar sesión para no contaminar futuros flujos
             try:
-                del request.session['qualification_data']
-            except KeyError:
-                pass
+                # --- LÓGICA DE NEGOCIO REAL ---
+                factores_calculados = CalculoFactores(montos_data)
+                qualification.factores = {k: str(v) for k, v in factores_calculados.items()}
+                # --- FIN ---
+                
+                qualification.save() # Guardar el objeto completo
+                
+                AuditLog.objects.create(
+                    user=request.user,
+                    action='create',
+                    qualification=qualification,
+                    details=f"Creación manual de {qualification.instrumento}"
+                )
+                messages.success(request, 'Calificación creada exitosamente.')
+                return redirect('qualification_list')
+                
+            except ValueError as e:
+                # Capturar el error de validación de CalculoFactores (ej. Suma > 1)
+                messages.error(request, f"Error de validación: {e}")
+        
+        else:
+            messages.error(request, 'Formulario inválido.')
+    else:
+        form = QualificationForm()
+        amounts_form = QualificationAmountsForm()
 
-            messages.success(request, 'Calificación creada correctamente.')
-            return redirect('qualification_list')
-
-        # Step desconocido
-        messages.error(request, 'Paso inválido.')
-        return redirect('qualification_create')
-
-    # GET inicial
-    form = QualificationForm(initial=request.session.get('qualification_data', {}))
-    return render(request, 'mantenedor/create_step1.html', {'form': form})
-
-
-# ------------ Actualizar ------------
+    return render(request, 'mantenedor/qualification_form.html', {
+        'form': form,
+        'amounts_form': amounts_form,
+        'action': 'Crear'
+    })
 
 @login_required
 def update_qualification(request, pk):
-    qual = get_object_or_404(Qualification, pk=pk, broker=request.user.userprofile.broker)
+    """
+    Vista para actualizar una calificación existente (CRUD).
+    Implementa la lógica de cálculo real.
+    """
+    qualification = get_object_or_404(Qualification, pk=pk, broker=request.user.userprofile.broker)
+    
     if request.method == 'POST':
-        form = QualificationForm(request.POST, instance=qual)
+        form = QualificationForm(request.POST, instance=qualification)
         amounts_form = QualificationAmountsForm(request.POST)
+        
         if form.is_valid() and amounts_form.is_valid():
-            amounts = {k: _to_float_safe(v) for k, v in amounts_form.cleaned_data.items() if v is not None}
-            factores = {f'factor{i}': _to_float_safe(amounts.get(f'amount{i}', 0)) for i in range(1, 30)}
+            qualification = form.save(commit=False)
+            
+            montos_data = amounts_form.cleaned_data
+            qualification.montos = {k: str(v if v is not None else '0.0') for k, v in montos_data.items()}
 
-            sum_f = _sum_range(factores, 'factor', 8, 16)
-            if sum_f > 1.0 + 1e-9:
-                messages.error(request, 'La suma de factores 8 a 16 excede 1.')
-                return render(request, 'mantenedor/update.html', {'form': form, 'amounts_form': amounts_form})
+            try:
+                # --- LÓGICA DE NEGOCIO REAL ---
+                factores_calculados = CalculoFactores(montos_data)
+                qualification.factores = {k: str(v) for k, v in factores_calculados.items()}
+                # --- FIN ---
 
-            qual = form.save()
-            qual.montos = amounts
-            qual.factores = factores
-            qual.save()
+                qualification.save() # Guardar cambios
+                
+                AuditLog.objects.create(
+                    user=request.user,
+                    action='update',
+                    qualification=qualification,
+                    details=f"Actualización manual de {qualification.instrumento}"
+                )
+                messages.success(request, 'Calificación actualizada exitosamente.')
+                return redirect('qualification_list')
 
-            AuditLog.objects.create(
-                user=request.user,
-                action='update',
-                qualification=qual,
-                details='Manual update'
-            )
-            messages.success(request, 'Calificación actualizada correctamente.')
-            return redirect('qualification_list')
+            except ValueError as e:
+                messages.error(request, f"Error de validación: {e}")
+        
         else:
-            return render(request, 'mantenedor/update.html', {'form': form, 'amounts_form': amounts_form})
+            messages.error(request, 'Formulario inválido.')
     else:
-        form = QualificationForm(instance=qual)
-        amounts_form = QualificationAmountsForm(initial=qual.montos or {})
-    return render(request, 'mantenedor/update.html', {'form': form, 'amounts_form': amounts_form})
+        form = QualificationForm(instance=qualification)
+        # Cargar montos existentes si los hay
+        initial_amounts = {k: Decimal(v) for k, v in qualification.montos.items()} if qualification.montos else {}
+        amounts_form = QualificationAmountsForm(initial=initial_amounts)
 
-
-# ------------ Eliminar ------------
+    return render(request, 'mantenedor/qualification_form.html', {
+        'form': form,
+        'amounts_form': amounts_form,
+        'action': 'Actualizar'
+    })
 
 class QualificationDeleteView(LoginRequiredMixin, DeleteView):
     model = Qualification
+    template_name = 'mantenedor/qualification_confirm_delete.html'
     success_url = reverse_lazy('qualification_list')
-    template_name = 'mantenedor/confirm_delete.html'
 
     def get_queryset(self):
+        # Asegurar que solo el corredor dueño pueda borrar
         return super().get_queryset().filter(broker=self.request.user.userprofile.broker)
 
-    def delete(self, request, *args, **kwargs):
-        qual = self.get_object()
+    def form_valid(self, form):
+        # Log de auditoría ANTES de borrar
+        qualification = self.get_object()
         AuditLog.objects.create(
-            user=request.user,
+            user=self.request.user,
             action='delete',
-            qualification=qual,
-            details='Manual delete'
+            details=f"Eliminación de {qualification.instrumento} (ID: {qualification.pk})"
         )
-        messages.success(request, 'Calificación eliminada correctamente.')
-        return super().delete(request, *args, **kwargs)
-
-
-# ------------ Carga masiva ------------
+        messages.success(self.request, 'Calificación eliminada exitosamente.')
+        return super().form_valid(form)
 
 @login_required
+@transaction.atomic # Si una fila falla, toda la carga falla
 def bulk_load(request):
-    if request.method == 'POST':
-        form = BulkLoadForm(request.POST, request.FILES)
-        if form.is_valid():
-            csv_file = request.FILES['csv_file']
-            load_type = form.cleaned_data['load_type']
-            data = csv_file.read().decode('utf-8', errors='ignore')
-            io_string = io.StringIO(data)
-            reader = csv.DictReader(io_string)
+    """
+    Vista para la carga masiva (CSV) de Montos o Factores.
+    Implementa la lógica de cálculo real para 'montos'.
+    """
+    if request.method != 'POST':
+        return redirect('qualification_list')
+
+    form = BulkLoadForm(request.POST, request.FILES)
+    
+    if form.is_valid():
+        csv_file = request.FILES['csv_file']
+        load_type = form.cleaned_data['load_type']
+        
+        try:
+            parsed_data = parse_csv(csv_file)
+            created_count = 0
+            updated_count = 0
             broker = request.user.userprofile.broker
-            updated = 0
-            created = 0
-
-            with transaction.atomic():
-                for row in reader:
-                    mercado = (row.get('mercado') or '').strip()
-                    instrumento = (row.get('instrumento') or '').strip()
-                    fecha_pago = _parse_date_any(row.get('fecha_pago'))
+            
+            for row in parsed_data:
+                # --- 1. Parsear datos comunes y clave única ---
+                fecha_pago_str = row.get('fecha_pago')
+                if not fecha_pago_str:
+                    raise ValueError(f"Fila sin fecha_pago: {row.get('instrumento')}")
+                
+                try:
+                    # Intentar formatos comunes
+                    fecha_pago = datetime.strptime(fecha_pago_str, '%d/%m/%Y').date()
+                except ValueError:
                     try:
-                        ejercicio = int((row.get('ejercicio') or '0').strip())
+                        fecha_pago = datetime.strptime(fecha_pago_str, '%Y-%m-%d').date()
                     except ValueError:
-                        ejercicio = 0
+                        raise ValueError(f"Formato de fecha inválido '{fecha_pago_str}' en fila: {row.get('instrumento')}")
 
-                    # Usar get_or_create con fecha date (no string)
-                    qual, created_flag = Qualification.objects.get_or_create(
-                        broker=broker,
-                        mercado=mercado,
-                        instrumento=instrumento,
-                        fecha_pago=fecha_pago,
-                        ejercicio=ejercicio,
-                        defaults={'origen': f'Carga Masiva - {load_type.capitalize()}'}
-                    )
+                unique_key = {
+                    'broker': broker,
+                    'mercado': row.get('mercado'),
+                    'instrumento': row.get('instrumento'),
+                    'fecha_pago': fecha_pago,
+                    'ejercicio': int(_to_float_safe(row.get('ejercicio', 0)))
+                }
+                
+                # Omitir filas sin datos clave
+                if not all(unique_key.values()):
+                    continue 
 
-                    if load_type == 'montos':
-                        montos = {f'amount{i}': _to_float_safe(row.get(f'amount{i}', 0)) for i in range(1, 30)}
-                        # placeholder: factores derivados de montos (ajusta con tu fórmula real)
-                        factores = {f'factor{i}': _to_float_safe(row.get(f'amount{i}', 0)) for i in range(1, 30)}
-                        qual.montos = montos
-                        qual.factores = factores
-                    else:
-                        factores = {f'factor{i}': _to_float_safe(row.get(f'factor{i}', 0)) for i in range(1, 30)}
-                        qual.factores = factores
+                defaults = {'origen': f'Carga Masiva - {load_type}'}
+                
+                # --- 2. Procesar según el tipo de carga ---
+                if load_type == 'montos':
+                    # Extraer montos usando la cabecera 'MSJ 1948 - Ci'
+                    montos_data = {f'amount{i}': _to_float_safe(row.get(f'MSJ 1948 - C{i}')) for i in range(1, 30)}
+                    
+                    # Calcular factores
+                    factores_data = CalculoFactores(montos_data)
+                    
+                    defaults['montos'] = {k: str(v) for k, v in montos_data.items()}
+                    defaults['factores'] = {k: str(v) for k, v in factores_data.items()}
 
-                    qual.save()
+                else: # 'factores'
+                    # Extraer factores
+                    factores_data = {f'factor{i}': _to_float_safe(row.get(f'factor{i}')) for i in range(1, 30)}
+                    
+                    # Validar suma (8-16)
+                    suma_factores_8_16 = sum(factores_data.get(f'factor{i}', Decimal('0.0')) for i in range(8, 17))
+                    if round(suma_factores_8_16, 4) > 1:
+                        raise ValueError(f"Error en fila {row.get('instrumento')}: La suma de factores 8 a 16 excede 1")
+                    
+                    defaults['factores'] = {k: str(v) for k, v in factores_data.items()}
+                    defaults['montos'] = {} # No hay montos
 
-                    if created_flag:
-                        created += 1
-                    else:
-                        updated += 1
+                # --- 3. Guardar en la BD ---
+                qual, created = Qualification.objects.update_or_create(
+                    **unique_key,
+                    defaults=defaults
+                )
+                
+                if created:
+                    created_count += 1
+                else:
+                    updated_count += 1
+            
+            # --- 4. Log y Mensaje de éxito ---
+            AuditLog.objects.create(
+                user=request.user,
+                action='bulk_load',
+                details=f"Carga Masiva '{load_type}': {created_count} creadas, {updated_count} actualizadas."
+            )
+            messages.success(request, f"Carga masiva completada: {created_count} creadas, {updated_count} actualizadas.")
+        
+        except Exception as e:
+            messages.error(request, f"Error en la carga: {e}")
+            
+    return redirect('qualification_list')
 
-                    AuditLog.objects.create(
-                        user=request.user,
-                        action='bulk_load',
-                        qualification=qual,
-                        details=f'Bulk load {load_type}'
-                    )
+# --- VISTA DE SIGNUP AÑADIDA ---
 
-            messages.success(request, f'Carga masiva completada: {created} creadas, {updated} actualizadas.')
-            return redirect('qualification_list')
-    else:
-        form = BulkLoadForm()
-    return render(request, 'mantenedor/bulk_load.html', {'form': form})
+class SignUpView(CreateView):
+    """
+    Vista para registrar nuevos usuarios.
+    Usa el formulario estándar de Django. La señal en models.py
+    se encargará de crear el UserProfile y asignarlo al 'Default Broker'.
+    """
+    form_class = UserCreationForm
+    success_url = reverse_lazy('login') # Redirige al login después de crear la cuenta
+    template_name = 'registration/signup.html'
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Cuenta creada exitosamente. Ahora puedes iniciar sesión.')
+        return super().form_valid(form)
+
+# --- FIN ---

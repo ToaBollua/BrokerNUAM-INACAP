@@ -1,0 +1,56 @@
+/* brokernuam/static/css/nuam-theme.css */
+
+/* * Sobrescribe las variables de color raíz de Bootstrap.
+ * El rojo principal de NUAM es aprox #E30613.
+*/
+:root {
+    --nuam-red: #E30613;
+    --nuam-dark-red: #b0050f;
+    --nuam-gray: #4a4a4a;
+
+    /* Sobrescribir colores de Bootstrap */
+    --bs-primary: var(--nuam-red);
+    --bs-primary-rgb: 227, 6, 19;
+    --bs-primary-text-emphasis: var(--nuam-dark-red);
+    --bs-primary-bg-subtle: #fbe6e8;
+    --bs-primary-border-subtle: #f8cdd0;
+
+    /* Cambiar botones 'Success' (verde) a 'Gris' */
+    --bs-success: var(--nuam-gray);
+    --bs-success-rgb: 74, 74, 74;
+    --bs-success-text-emphasis: #2a2a2a;
+    --bs-success-bg-subtle: #eaeaea;
+    --bs-success-border-subtle: #d5d5d5;
+
+    /* Cambiar botones 'Warning' (amarillo) a 'Rojo Secundario' */
+    --bs-warning: var(--nuam-dark-red);
+    --bs-warning-rgb: 176, 5, 15;
+    --bs-warning-text-emphasis: #8c040c;
+    --bs-warning-bg-subtle: #fbe6e8;
+    --bs-warning-border-subtle: #f8cdd0;
+}
+
+/* Forzar color en links de botones */
+.btn-primary {
+    --bs-btn-color: #fff;
+    --bs-btn-hover-color: #fff;
+    --bs-btn-active-color: #fff;
+}
+
+.btn-warning {
+     --bs-btn-color: #fff;
+    --bs-btn-hover-color: #fff;
+    --bs-btn-active-color: #fff;
+}
+
+.btn-success {
+     --bs-btn-color: #fff;
+    --bs-btn-hover-color: #fff;
+    --bs-btn-active-color: #fff;
+}
+
+/* Ajuste del logo en la navbar */
+.navbar-brand img {
+    height: 30px; /* Ajusta la altura del logo */
+    margin-right: 10px;
+}

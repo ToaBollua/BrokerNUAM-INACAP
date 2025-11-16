@@ -7,4 +7,7 @@ urlpatterns = [
     path('update/<int:pk>/', views.update_qualification, name='update_qualification'),
     path('delete/<int:pk>/', views.QualificationDeleteView.as_view(), name='delete_qualification'),
     path('bulk_load/', views.bulk_load, name='bulk_load'),
+    
+    # --- RUTA DE SIGNUP AÑADIDA ---
+    path('signup/', views.SignUpView.as_view(), name='signup'),
 ]

@@ -1,0 +1,42 @@
+{% extends 'mantenedor/base.html' %}
+
+{% block title %}{{ action }} Calificación{% endblock %}
+
+{% block content %}
+<h2>{{ action }} Calificación</h2>
+
+{% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+            <div class="alert alert-{% if message.tags %}{{ message.tags }}{% else %}danger{% endif %}" role="alert">
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+<form method="post">
+    {% csrf_token %}
+
+    {{ form.as_p }}
+
+    <h3>Montos</h3>
+    <div class="row">
+        {% for field in amounts_form %}
+            <div class="col-md-4 mb-3">
+                <label for="{{ field.id_for_label }}">{{ field.label }}:</label>
+                {{ field }}
+                {% if field.errors %}
+                    <div class="invalid-feedback d-block">
+                        {{ field.errors.as_text }}
+                    </div>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+
+    <button type="submit" class="btn btn-primary">{{ action }}</button>
+    <a href="{% url 'qualification_list' %}" class="btn btn-secondary">Cancelar</a>
+</form>
+
+{% endblock %}

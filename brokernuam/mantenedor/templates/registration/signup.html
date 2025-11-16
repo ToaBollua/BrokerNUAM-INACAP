@@ -1,0 +1,16 @@
+{% extends 'mantenedor/base.html' %}
+
+{% block title %}Crear Cuenta{% endblock %}
+
+{% block content %}
+<h2>Crear Nueva Cuenta</h2>
+<p>Las cuentas nuevas serán asignadas al 'Default Broker' automáticamente.</p>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Crear Cuenta</button>
+</form>
+
+<hr>
+<p>¿Ya tienes una cuenta? <a href="{% url 'login' %}">Inicia sesión aquí</a>.</p>
+{% endblock %}

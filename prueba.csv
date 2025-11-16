@@ -1,0 +1,3 @@
+mercado,instrumento,fecha_pago,ejercicio,factor1,factor2,factor3,factor4,factor5,factor6,factor7,factor8,factor9,factor10,factor11,factor12,factor13,factor14,factor15,factor16
+acciones,TEST-CSV-001,15/11/2025,2025,1,0,0,0,0,0,0,0.1,0.1,0,0,0,0,0,0,0.1
+cfi,TEST-CSV-002,16/11/2025,2025,0,1,0,0,0,0,0,0.2,0,0,0,0,0,0,0,0.1
