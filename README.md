@@ -4,6 +4,23 @@
 
 Sistema de mantenedor de calificaciones tributarias desarrollado en Django 5.2, utilizando PostgreSQL como base de datos.
 
+## Estructura del Directorio
+
+Este repositorio tiene una estructura anidada. Los scripts de instalación (`setup.sh`, etc.) y el `venv` se encuentran en la raíz. El código de Django (`manage.py`, `mantenedor/`, `brokernuam/`) se encuentra dentro del directorio `brokernuam/`.
+
+```
+BrokerNUAM-INACAP/
+├── brokernuam/         <-- Directorio del proyecto Django
+│   ├── brokernuam/     <-- Directorio de configuración (settings.py)
+│   ├── mantenedor/     <-- App principal
+│   └── manage.py
+├── venv/
+├── requirements.txt
+├── setup-arch.sh
+├── setup-debian.sh
+└── setup.ps1
+```
+
 ## Requisitos Previos (Generales)
 
 * Python 3.11+
@@ -34,14 +51,14 @@ sudo systemctl enable --now postgresql
 
 ### 3. Ejecución del Script (Arch)
 
-Este script (`setup-arch.sh`) configurará la BD, el `venv`, instalará dependencias, creará el `.env` y las migraciones, y generará un superusuario (`admin`/`admin`).
+Este script (`setup-arch.sh`) configurará la BD, el `venv`, instalará dependencias, creará el `.env` (dentro de `brokernuam/`), aplicará las migraciones y generará un superusuario (`admin`/`admin`).
 
 ```bash
 # 1. Da permisos de ejecución al script
 chmod +x setup-arch.sh
 
 # 2. Ejecuta el script (requerirá tu contraseña de sudo para Postgres)
-./setup.sh
+./setup-arch.sh
 ```
 
 ---
@@ -66,7 +83,7 @@ sudo systemctl enable --now postgresql
 
 ### 3. Ejecución del Script (Debian)
 
-Este script (`setup-debian.sh`) configurará la BD, el `venv`, instalará dependencias, creará el `.env` y las migraciones, y generará un superusuario (`admin`/`admin`).
+Este script (`setup-debian.sh`) configurará la BD, el `venv`, instalará dependencias, creará el `.env` (dentro de `brokernuam/`), aplicará las migraciones y generará un superusuario (`admin`/`admin`).
 
 ```bash
 # 1. Da permisos de ejecución al script
@@ -99,7 +116,7 @@ Set-ExecutionPolicy RemoteSigned
 **B. Contraseña de Administrador de Postgres:**
 El script necesita la contraseña de tu superusuario `postgres` (la que definiste al instalar PostgreSQL). Abre una terminal normal de PowerShell y establécela como una variable de entorno temporal:
 
-```powersV
+```powershell
 # Reemplaza 'tu_contraseña' por tu contraseña real
 $env:PGPASSWORD = "tu_contraseña_de_postgres"
 ```
@@ -125,7 +142,10 @@ source venv/bin/activate
 # (Windows PowerShell)
 .\venv\Scripts\Activate.ps1
 
-# 2. Inicia el servidor
+# 2. Entra al directorio del proyecto Django
+cd brokernuam/
+
+# 3. Inicia el servidor
 python manage.py runserver
 ```
 

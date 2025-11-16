@@ -1,12 +1,8 @@
 #!/usr/bin/env pwsh
 #
-# setup.ps1
+# setup.ps1 (Corregido)
 # Script de instalación automatizado de PowerShell para el Mantenedor NUAM en Windows.
-#
-# REQUISITO PREVIO:
-# 1. Instalar Python 3.11+ (asegúrate de que 'python' esté en el PATH).
-# 2. Instalar PostgreSQL (asegúrate de que 'psql', 'createuser', 'createdb' estén en el PATH).
-# 3. La contraseña del superusuario 'postgres' de PostgreSQL.
+# Asume que se ejecuta desde la raíz 'BrokerNUAM-INACAP', NO desde 'brokernuam/'.
 #
 $ErrorActionPreference = "Stop"
 Write-Host "--- Automatización de Instalación de Windows para NUAM ---" -ForegroundColor Cyan
@@ -15,10 +11,9 @@ Write-Host "--- Automatización de Instalación de Windows para NUAM ---" -Foreg
 $DB_USER = "mantenedor_user"
 $DB_PASS = "mantenedor_pass"
 $DB_NAME = "mantenedor_db"
+$PROJECT_DIR = "brokernuam"
 
 # --- 1. Verificar PGPASSWORD ---
-# El script debe ejecutarse como el superusuario 'postgres' de la BD.
-# La forma más limpia es que el usuario establezca esta variable ANTES de ejecutar.
 if (-not $env:PGPASSWORD) {
     Write-Host "[ERROR] Variable de entorno PGPASSWORD no encontrada." -ForegroundColor Red
     Write-Host "Este script necesita la contraseña del superusuario 'postgres' de tu instalación de Windows."
@@ -32,29 +27,17 @@ if (-not $env:PGPASSWORD) {
 # --- 2. Configuración de PostgreSQL ---
 Write-Host "--- 1. Configurando PostgreSQL (Host: localhost, User: postgres) ---"
 try {
-    # Comprobar/Crear Usuario
     $userExists = psql -U postgres -d postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='$DB_USER'"
-    if ($userExists -eq "1") {
-        Write-Host "Usuario '$DB_USER' ya existe."
-    } else {
-        Write-Host "Creando usuario '$DB_USER'..."
-        createuser -U postgres $DB_USER
-    }
+    if ($userExists -eq "1") { Write-Host "Usuario '$DB_USER' ya existe." }
+    else { Write-Host "Creando usuario '$DB_USER'..."; createuser -U postgres $DB_USER }
 
-    # Comprobar/Crear BD
     $dbExists = psql -U postgres -lqt | findstr /C:"$DB_NAME"
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "Base de datos '$DB_NAME' ya existe."
-    } else {
-        Write-Host "Creando base de datos '$DB_NAME'..."
-        createdb -U postgres -O $DB_USER $DB_NAME
-    }
+    if ($LASTEXITCODE -eq 0) { Write-Host "Base de datos '$DB_NAME' ya existe." }
+    else { Write-Host "Creando base de datos '$DB_NAME'..."; createdb -U postgres -O $DB_USER $DB_NAME }
 
-    # Establecer contraseña y permisos (CREATEDB es para los tests)
     Write-Host "Estableciendo contraseña y permisos para '$DB_USER'..."
     psql -U postgres -d postgres -c "ALTER USER $DB_USER WITH PASSWORD '$DB_PASS';"
     psql -U postgres -d postgres -c "ALTER USER $DB_USER CREATEDB;"
-
 } catch {
     Write-Host "[ERROR] Falló la configuración de PostgreSQL." -ForegroundColor Red
     Write-Host "Asegúrate de que el servicio de PostgreSQL esté corriendo y que 'psql' esté en tu PATH."
@@ -64,42 +47,43 @@ try {
 
 # --- 3. Configuración del Entorno Python ---
 Write-Host "--- 2. Configurando Entorno Python (venv) ---"
-if (Test-Path "venv") {
-    Write-Host "'venv' ya existe. Omitiendo."
-} else {
-    Write-Host "Creando 'venv'..."
-    python -m venv venv
-}
+if (Test-Path "venv") { Write-Host "'venv' ya existe. Omitiendo." }
+else { Write-Host "Creando 'venv'..."; python -m venv venv }
 
 Write-Host "Instalando dependencias desde requirements.txt..."
-# Llamamos a pip directamente en lugar de activar el venv (más robusto para scripts)
 .\venv\Scripts\pip.exe install -r requirements.txt
 
-# --- 4. Creación del archivo .env ---
-Write-Host "--- 3. Creando archivo .env ---"
+# --- 4. Creación del archivo .env (Ruta Corregida) ---
+Write-Host "--- 3. Creando archivo .env en $PROJECT_DIR ---"
+$envPath = Join-Path -Path $PROJECT_DIR -ChildPath ".env"
 $envContent = @"
 DATABASE_URL=postgres://$DB_USER`:$DB_PASS@localhost:5432/$DB_NAME
 DJANGO_SETTINGS_MODULE=brokernuam.settings
 SECRET_KEY='local-debug-key-insecure'
 DEBUG=True
 "@
-# (Nota: ` es el caracter de escape para el $ en PowerShell)
-Set-Content -Path ".env" -Value $envContent
+Set-Content -Path $envPath -Value $envContent
 Write-Host ".env creado exitosamente."
 
-# --- 5. Ejecución de Migraciones ---
+# --- 5. Ejecución de Migraciones (Ruta Corregida) ---
 Write-Host "--- 4. Aplicando Migraciones de Base de Datos ---"
-.\venv\Scripts\python.exe manage.py migrate
+Push-Location $PROJECT_DIR # <--- CORRECCIÓN: Entrar al directorio
+.\..\\venv\Scripts\python.exe manage.py migrate # <--- CORRECCIÓN: ../venv
+Pop-Location # <--- CORRECCIÓN: Salir
 
-# --- 6. Creación de Superusuario (No interactivo) ---
+# --- 6. Creación de Superusuario (Ruta Corregida) ---
 Write-Host "--- 5. Creando Superusuario (admin/admin) ---"
 $cmd = "from django.contrib.auth import get_user_model; User = get_user_model(); User.objects.filter(username='admin').exists() or User.objects.create_superuser('admin', 'admin@nuam.com', 'admin')"
-echo $cmd | .\venv\Scripts\python.exe manage.py shell
+Push-Location $PROJECT_DIR # <--- CORRECCIÓN: Entrar al directorio
+echo $cmd | .\..\\venv\Scripts\python.exe manage.py shell # <--- CORRECCIÓN: ../venv
+Pop-Location # <--- CORRECCIÓN: Salir
 Write-Host "Superusuario 'admin' con contraseña 'admin' creado/verificado."
 
-# --- 7. Finalización ---
+# --- 7. Finalización (Instrucciones Corregidas) ---
 Write-Host "--- Instalación Completa ---" -ForegroundColor Green
 Write-Host "Para iniciar el servidor, activa el entorno virtual:"
 Write-Host ".\venv\Scripts\Activate.ps1"
-Write-Host "...y luego ejecuta:"
+Write-Host "...luego entra al directorio del proyecto:"
+Write-Host "cd brokernuam"
+Write-Host "...y finalmente ejecuta:"
 Write-Host "python manage.py runserver"
