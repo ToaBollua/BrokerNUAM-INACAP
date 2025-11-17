@@ -4,6 +4,21 @@
 
 Sistema de mantenedor de calificaciones tributarias desarrollado en Django 5.2, utilizando PostgreSQL como base de datos.
 
+## Integrantes del Proyecto
+* Nicolás Anrique
+* Diego Ibeas
+* Camilo Núñez
+
+---
+
+## Inicio Rápido (Obtener el Código)
+
+Para comenzar, clona el repositorio y navega al directorio del proyecto:
+
+```bash
+git clone https://github.com/ToaBollua/BrokerNUAM-INACAP #URL del repositorio
+cd BrokerNUAM-INACAP #Nombre del directorio
+
 ## Estructura del Directorio
 
 Este repositorio tiene una estructura anidada. Los scripts de instalación (`setup.sh`, etc.) y el `venv` se encuentran en la raíz. El código de Django (`manage.py`, `mantenedor/`, `brokernuam/`) se encuentra dentro del directorio `brokernuam/`.
