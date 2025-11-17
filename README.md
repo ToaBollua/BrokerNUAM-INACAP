@@ -18,6 +18,7 @@ Para comenzar, clona el repositorio y navega al directorio del proyecto:
 ```bash
 git clone https://github.com/ToaBollua/BrokerNUAM-INACAP #URL del repositorio
 cd BrokerNUAM-INACAP #Nombre del directorio
+```
 
 ## Estructura del Directorio
 
