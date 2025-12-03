@@ -1,0 +1,30 @@
+/* srv-django-backend/nuam/static/css/base.css */
+
+/* Scrollbar roja */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background-color: #0a0a0a; }
+::-webkit-scrollbar-thumb { background-color: #4a0000; } /* Rojo oscuro */
+::-webkit-scrollbar-thumb:hover { background-color: #e63946; } /* Rojo NUAM */
+
+/* Efecto CRT sutil */
+.crt::before {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0; left: 0; bottom: 0; right: 0;
+  background: linear-gradient(to bottom, rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+  background-size: 100% 4px;
+  z-index: 50;
+  pointer-events: none;
+}
+
+/* Brillo de texto Rojo */
+.text-glow {
+  text-shadow: 0 0 5px rgba(230, 57, 70, 0.6), 0 0 10px rgba(230, 57, 70, 0.4);
+}
+
+/* Paleta NUAM (Sobrescribimos las clases de utilidad) */
+.bg-nuam-dark { background-color: #0d0d0d; }
+.text-nuam-red { color: #e63946; }
+.border-nuam-red { border-color: #e63946; }
+.bg-nuam-red-dim { background-color: rgba(230, 57, 70, 0.1); }

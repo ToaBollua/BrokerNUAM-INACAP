@@ -1,65 +1,99 @@
 services:
-  db:
-    image: postgres:16-alpine
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "5433:5432"
-    environment:
-      POSTGRES_DB: mantenedor_db
-      POSTGRES_USER: mantenedor_user
-      POSTGRES_PASSWORD: mantenedor_pass
+      - "5432:5432"
     volumes:
-      - db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mantenedor_user -d mantenedor_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      - ./postgres_data:/var/lib/postgresql/data
+      - ./postgres_init:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+    env_file: .env  # <--- IMPORTANTE: Lee las variables del archivo
+    networks:
+      - nuam_network
 
-  backend:
-    build:
-      context: ./backend
-    # CORRECCIÓN:
-    # 1. Usar la ruta 'brokernuam/manage.py' (basado en tu error de permisos anterior).
-    # 2. Decirle a Gunicorn que cambie al directorio '/app/brokernuam' ANTES de buscar el wsgi.
-    command: >
-      sh -c "python brokernuam/manage.py migrate &&
-             gunicorn --chdir /app/brokernuam brokernuam.wsgi:application --bind 0.0.0.0:8000"
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
     environment:
-      DJANGO_SETTINGS_MODULE: brokernuam.settings
-      DATABASE_URL: postgres://mantenedor_user:mantenedor_pass@db:5432/mantenedor_db
-      DEBUG: 'False'
-      SECRET_KEY: your-prod-secret-key
-    volumes:
-      - ./backend:/app
-      - static_data:/app/static
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - nuam_network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - nuam_network
+
+  srv-django-backend:
+    build: ./srv-django-backend
+    container_name: nuam_backend
+    restart: unless-stopped
     ports:
       - "8000:8000"
-    depends_on:
-      db:
-        condition: service_healthy
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    env_file: .env # <--- Lee tus secretos de aquí
     environment:
-      - REACT_APP_API_URL=http://backend:8000/api/
-    ports:
-      - "3000:3000"
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092 # <--- Necesario para que Django vea a Kafka
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db:5432/${POSTGRES_DB}
+    networks:
+      - nuam_network
     depends_on:
-      - backend
+      - postgres
+      - kafka
 
-  nginx:
-    image: nginx:1.21
-    depends_on:
-      - frontend
-      - backend
+  srv-kafka-consumer:
+    build: ./srv-kafka-consumer
+    container_name: nuam_consumer
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db:5432/${POSTGRES_DB}
+      - PYTHONPATH=/app/backend  
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-      - static_data:/app/static:ro
-    ports:
-      - "80:80"
+      - ./srv-kafka-consumer:/app
+      - ./srv-django-backend:/app/backend
+    networks:
+      - nuam_network
+    depends_on:
+      - kafka
+      - postgres
+      - srv-django-backend
+  
+  srv-notifier:
+    build: ./srv-notifier
+    container_name: nuam_notifier
+    restart: unless-stopped
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    networks:
+      - nuam_network
+    depends_on:
+      - kafka
+
+networks:
+  nuam_network:
+    driver: bridge
 
 volumes:
-  db_data:
-  static_data:
+  postgres_data:

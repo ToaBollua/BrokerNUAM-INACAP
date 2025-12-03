@@ -1,7 +1,0 @@
-django
-gunicorn
-djangorestframework
-django-cors-headers
-psycopg2-binary
-pandas
-dj-database-url

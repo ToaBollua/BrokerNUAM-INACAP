@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="flex items-center justify-center h-full mt-10">
+    <div class="w-full max-w-md p-8 border border-h0p3-green shadow-[0_0_15px_rgba(0,255,65,0.2)] bg-black/80">
+        <h1 class="text-2xl font-bold text-center mb-8 text-glow">/// ACCESO RESTRINGIDO</h1>
+        
+        <form method="post" class="space-y-6">
+            {% csrf_token %}
+            <div>
+                <label class="block text-xs uppercase mb-1 opacity-70">Identificador</label>
+                <input type="text" name="username" required 
+                    class="w-full bg-black border border-h0p3-green/50 p-2 text-h0p3-green focus:border-h0p3-green focus:outline-none focus:shadow-[0_0_10px_rgba(0,255,65,0.3)] placeholder-green-900"
+                    placeholder="CORREDOR_ID">
+            </div>
+            <div>
+                <label class="block text-xs uppercase mb-1 opacity-70">Credencial</label>
+                <input type="password" name="password" required 
+                    class="w-full bg-black border border-h0p3-green/50 p-2 text-h0p3-green focus:border-h0p3-green focus:outline-none"
+                    placeholder="••••••••">
+            </div>
+            <button type="submit" 
+                class="w-full py-3 bg-h0p3-green text-black font-bold hover:bg-white transition-colors uppercase tracking-widest">
+                Establecer Conexión
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
