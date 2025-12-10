@@ -16,6 +16,8 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+RUN pip install django-extension
+
 COPY . .
 
 # Comando por defecto (ejecutará el script que crearemos en el siguiente paso)

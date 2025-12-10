@@ -49,9 +49,12 @@ services:
     build: ./srv-django-backend
     container_name: nuam_backend
     restart: unless-stopped
+    command: python manage.py runserver_plus 0.0.0.0:8000 --cert-file /app/certs/cert.pem --key-file /app/certs/key.pem
+    volumes:
+      - ./srv-django-backend:/app
     ports:
       - "8000:8000"
-    env_file: .env # <--- Lee tus secretos de aquí
+    env_file: .env
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092 # <--- Necesario para que Django vea a Kafka
       - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db:5432/${POSTGRES_DB}

@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="flex items-center space-x-3 mb-6 border-b border-gray-700 pb-4">
+        <div class="p-2 bg-nuam-red rounded-lg">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 3.666A5.002 5.002 0 0115 15m-5-5h5m-5 5h2a2 2 0 002-2v-4a2 2 0 00-2-2h-5z"></path></svg>
+        </div>
+        <div>
+            <h2 class="text-2xl font-bold text-white">Nueva Calificación Tributaria</h2>
+            <p class="text-sm text-gray-400">Ingreso manual con validación de factores.</p>
+        </div>
+    </div>
+
+    <form method="post" class="bg-gray-900 border border-gray-800 rounded-xl p-8 shadow-2xl">
+        {% csrf_token %}
+        
+        {% if form.errors %}
+        <div class="mb-6 bg-red-900/30 border border-red-500 text-red-200 p-4 rounded text-sm">
+            <p class="font-bold mb-1">Error de Validación:</p>
+            {{ form.errors }}
+        </div>
+        {% endif %}
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            
+            <div class="space-y-5">
+                <h3 class="text-nuam-red font-bold text-xs uppercase tracking-widest mb-4 border-b border-gray-800 pb-2">Datos Generales</h3>
+                
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-2 uppercase">Instrumento / Nemotécnico</label>
+                    {{ form.instrument }}
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-gray-400 text-xs font-bold mb-2 uppercase">Fecha Pago</label>
+                        {{ form.payment_date }}
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 text-xs font-bold mb-2 uppercase">Año Ejercicio</label>
+                        {{ form.exercise_year }}
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-2 uppercase">Origen del Dato</label>
+                    {{ form.source }}
+                </div>
+            </div>
+
+            <div class="space-y-5 bg-black/20 p-5 rounded-lg border border-gray-700/50">
+                <h3 class="text-blue-400 font-bold text-xs uppercase tracking-widest mb-4 border-b border-gray-700/50 pb-2">Cálculo y Factores</h3>
+                
+                <div>
+                    <label class="block text-gray-300 text-xs font-bold mb-2 uppercase">Monto Base Distribuido ($)</label>
+                    {{ form.monto_base }}
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-gray-300 text-xs font-bold mb-2 uppercase">Factor Crédito</label>
+                        {{ form.factor_credito }}
+                        <p class="text-[10px] text-gray-500 mt-1">Máx: 1.0000</p>
+                    </div>
+                    <div>
+                        <label class="block text-gray-300 text-xs font-bold mb-2 uppercase">Factor Incremento</label>
+                        {{ form.factor_incremento }}
+                        <p class="text-[10px] text-gray-500 mt-1">Máx: 1.0000</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-8 pt-6 border-t border-gray-800 flex justify-end space-x-4">
+            <a href="{% url 'home' %}" class="px-6 py-3 rounded-lg text-sm font-bold text-gray-400 hover:text-white transition-colors">
+                Cancelar
+            </a>
+            <button type="submit" class="bg-nuam-red hover:bg-red-700 text-white px-8 py-3 rounded-lg font-bold shadow-lg hover:shadow-red-900/50 transition-all transform hover:-translate-y-0.5">
+                GUARDAR REGISTRO
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

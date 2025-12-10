@@ -29,6 +29,7 @@ class TaxQualification(models.Model):
     amounts = models.JSONField(default=dict) 
     factors = models.JSONField(default=dict)
     
+    financial_data = models.JSONField(default=dict, blank=True, null=True, verbose_name="Datos Financieros (JSON)")
     source = models.CharField(max_length=50, default='MANUAL') # MANUAL, CSV_MONTOS, CSV_FACTORES
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
