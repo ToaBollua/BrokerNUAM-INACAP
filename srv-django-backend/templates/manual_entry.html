@@ -52,9 +52,15 @@
             <div class="space-y-5 bg-black/20 p-5 rounded-lg border border-gray-700/50">
                 <h3 class="text-blue-400 font-bold text-xs uppercase tracking-widest mb-4 border-b border-gray-700/50 pb-2">Cálculo y Factores</h3>
                 
-                <div>
-                    <label class="block text-gray-300 text-xs font-bold mb-2 uppercase">Monto Base Distribuido ($)</label>
-                    {{ form.monto_base }}
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="col-span-1">
+                        <label class="block text-gray-300 text-xs font-bold mb-2 uppercase">Moneda</label>
+                        {{ form.currency }}
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-gray-300 text-xs font-bold mb-2 uppercase">Monto Base Distribuido</label>
+                        {{ form.monto_base }}
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">

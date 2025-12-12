@@ -4,8 +4,7 @@ from .models import TaxQualification
 import json
 
 class ManualEntryForm(forms.ModelForm):
-    # --- CAMPOS VIRTUALES (UX Amigable) ---
-    # Estos campos no existen en la BD, se guardarán en el JSON
+    # --- CAMPOS VIRTUALES ---
     monto_base = forms.DecimalField(
         label="Monto Base ($)", 
         max_digits=12, 
@@ -31,16 +30,17 @@ class ManualEntryForm(forms.ModelForm):
 
     class Meta:
         model = TaxQualification
-        # Excluimos 'financial_data' porque lo llenaremos nosotros
-        fields = ['instrument', 'payment_date', 'exercise_year', 'source']
+        fields = ['instrument', 'payment_date', 'exercise_year', 'source', 'currency']
         widgets = {
             'instrument': forms.TextInput(attrs={'class': 'bg-gray-700 text-white border-none rounded p-2 w-full', 'placeholder': 'Ej: CHILE N.A.'}),
             'payment_date': forms.DateInput(attrs={'type': 'date', 'class': 'bg-gray-700 text-white border-none rounded p-2 w-full'}),
             'exercise_year': forms.NumberInput(attrs={'class': 'bg-gray-700 text-white border-none rounded p-2 w-full'}),
             'source': forms.Select(attrs={'class': 'bg-gray-700 text-white border-none rounded p-2 w-full'}),
+            # AQUÍ ESTÁ LA CORRECCIÓN: Forzamos el Select y le damos estilo
+            'currency': forms.Select(attrs={'class': 'bg-gray-700 text-white border-none rounded p-2 w-full font-bold border border-gray-600'}),
         }
 
-    # --- VALIDACIÓN DE NEGOCIO (Factores <= 1) ---
+    # --- VALIDACIONES Y LOGICA JSON ---
     def clean_factor_credito(self):
         factor = self.cleaned_data['factor_credito']
         if factor > 1:
@@ -55,18 +55,17 @@ class ManualEntryForm(forms.ModelForm):
             raise ValidationError("El Factor de Incremento no puede ser mayor a 1.0.")
         return factor
 
-    # --- EMPAQUETADO JSON (Magia) ---
     def save(self, commit=True):
         instance = super().save(commit=False)
         
-        # Construimos el JSON automáticamente desde los campos limpios
         financial_payload = {
+            "moneda": instance.currency, 
             "monto_base": float(self.cleaned_data['monto_base']),
             "factores": {
                 "credito": float(self.cleaned_data['factor_credito']),
                 "incremento": float(self.cleaned_data['factor_incremento'] or 0)
             },
-            "calculado_automatico": True # Marca de auditoría
+            "calculado_automatico": True
         }
         
         instance.financial_data = financial_payload
@@ -75,6 +74,5 @@ class ManualEntryForm(forms.ModelForm):
             instance.save()
         return instance
 
-# Mantén el CSVUploadForm igual...
 class CSVUploadForm(forms.Form):
     file = forms.FileField(label='Seleccionar archivo CSV', widget=forms.FileInput(attrs={'class': 'text-white'}))

@@ -4,62 +4,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NUAM | Mantenedor Tributario</title>
+    <title>NUAM | Gestión Tributaria</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="{% static 'css/base.css' %}">
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        'nuam-dark': '#0d0d0d',
-                        'nuam-red': '#e63946',
+                        'nuam-red': '#E63946',
+                        'nuam-dark': '#1D3557',
                     }
                 }
             }
         }
     </script>
+    <style>
+        /* Estilo Cyberpunk Corporativo */
+        body { background-color: #0f1115; }
+        .glass-panel { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+    </style>
 </head>
-<body class="bg-nuam-dark text-gray-300 font-sans overflow-x-hidden crt min-h-screen flex flex-col">
+<body class="text-gray-300 font-sans antialiased min-h-screen flex flex-col">
 
-    <header class="border-b border-nuam-red/50 bg-black/80 backdrop-blur-sm">
-        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
-            <div class="text-xl font-bold tracking-widest text-nuam-red text-glow">
-                <a href="{% url 'home' %}">NUAM EXCHANGE</a>
-            </div>
-            <div>
-                {% if user.is_authenticated %}
-                    <span class="mr-4 text-sm text-gray-400">Usuario: {{ user.username }}</span>
-                    <form action="{% url 'logout' %}" method="post" class="inline">
-                        {% csrf_token %}
-                        <button type="submit" class="px-4 py-1 text-xs border border-nuam-red text-nuam-red hover:bg-nuam-red hover:text-white transition-colors uppercase font-bold">
-                            Cerrar Sesión
-                        </button>
-                    </form>
-                {% else %}
+    <nav class="bg-black/90 border-b border-gray-800 fixed w-full z-50 top-0">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                
+                <div class="flex items-center">
+                    <a href="{% url 'home' %}" class="flex-shrink-0">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 bg-nuam-red rounded flex items-center justify-center text-white font-black text-xl">N</div>
+                            <span class="text-white font-bold tracking-widest text-lg">NUAM <span class="text-xs font-normal text-gray-500">EXCHANGE</span></span>
+                        </div>
+                    </a>
+                </div>
+
+                <div class="flex items-center gap-4">
+                    {% if user.is_authenticated %}
+                        
+                        <div class="text-right hidden md:block mr-4">
+                            <p class="text-sm font-bold text-white">{{ user.username }}</p>
+                            <p class="text-xs text-gray-500">
+                                {% if user.is_superuser %} Superusuario {% else %} Operador {% endif %}
+                            </p>
+                        </div>
+
+                        {% if user.is_superuser %}
+                        <a href="{% url 'admin:index' %}" target="_blank" class="flex items-center px-3 py-1 bg-red-900/30 border border-red-500/50 text-red-400 text-xs font-bold uppercase rounded hover:bg-red-900 hover:text-white transition-all">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                            Admin Panel
+                        </a>
+                        {% endif %}
+
+                        <a href="{% url 'admin:logout' %}" class="text-gray-400 hover:text-white transition-colors">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                        </a>
+
                     {% endif %}
+                </div>
             </div>
-        </nav>
-    </header>
+        </div>
+    </nav>
 
-    <main class="container mx-auto px-6 py-8 flex-grow">
-        {% if messages %}
-            <div class="mb-6 space-y-2">
-                {% for message in messages %}
-                    <div class="p-3 border-l-4 border-nuam-red bg-nuam-red/10 text-sm text-white">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            </div>
-        {% endif %}
-
-        {% block content %}{% endblock %}
+    <main class="flex-grow pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+        {% block content %}
+        {% endblock %}
     </main>
 
-    <footer class="border-t border-nuam-red/30 py-6 mt-auto bg-black">
-        <div class="container mx-auto px-6 text-center text-xs text-gray-500">
-            © 2025 NUAM EXCHANGE. TODOS LOS DERECHOS RESERVADOS.
+    <footer class="bg-black/80 border-t border-gray-800 mt-auto py-6">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-gray-600 uppercase tracking-widest">
+            &copy; 2025 NUAM EXCHANGE | Infraestructura Crítica
         </div>
     </footer>
+
 </body>
 </html>

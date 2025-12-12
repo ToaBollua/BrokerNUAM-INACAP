@@ -1,145 +1,192 @@
-# NUAM Exchange - Sistema de Gestión de Calificaciones Tributarias
+# 🏛️ NUAM Exchange - Sistema de Gestión de Calificaciones Tributarias
 
-## 📋 Descripción del Proyecto
-Este proyecto implementa una solución de **Arquitectura de Microservicios** para la gestión, procesamiento y auditoría de Calificaciones Tributarias del holding NUAM.
+![Status](https://img.shields.io/badge/Status-Stable-success)
+![Docker](https://img.shields.io/badge/Docker-Compose-blue?logo=docker)
+![Python](https://img.shields.io/badge/Python-3.11-yellow?logo=python)
+![Django](https://img.shields.io/badge/Django-5.0-green?logo=django)
+![Kafka](https://img.shields.io/badge/Kafka-Event--Driven-black?logo=apachekafka)
+![Security](https://img.shields.io/badge/Security-Multi--Tenant-red)
 
-El sistema permite la ingesta de datos financieros (vía carga manual o eventos asíncronos), el cálculo de factores tributarios, la segregación de datos por cliente (Multi-tenancy) y la notificación proactiva de eventos, cumpliendo con estándares de alta disponibilidad, seguridad y desacoplamiento.
-
-## 🏗️ Arquitectura de la Solución
-
-El sistema está orquestado mediante **Docker Compose** y se compone de los siguientes nodos:
-
-### 1. Backend Core (`srv-django-backend`)
-* **Tecnología:** Python 3.11, Django 5.0.
-* **Función:** API REST, lógica de negocio, cálculo de factores, gestión de usuarios y panel de administración (Jazzmin).
-* **Seguridad:** Implementa aislamiento de datos por `Broker` (Corredor). Un corredor no puede ver los datos de otro.
-* **Servidor:** Gunicorn + WhiteNoise (para gestión eficiente de archivos estáticos).
-
-### 2. Bus de Eventos (`kafka` + `zookeeper`)
-* **Tecnología:** Apache Kafka 7.4 (Confluent), Zookeeper.
-* **Función:** Columna vertebral de comunicación asíncrona. Desacopla la ingesta de datos del procesamiento para garantizar resiliencia.
-
-### 3. Consumidor de Persistencia (`srv-kafka-consumer`)
-* **Tecnología:** Python Standalone.
-* **Función:** Escucha el tópico `nuam_events`. Procesa los mensajes entrantes, valida la existencia del corredor y persiste la calificación en la base de datos PostgreSQL utilizando el ORM de Django inyectado.
-
-### 4. Servicio de Notificaciones (`srv-notifier`)
-* **Tecnología:** Python Standalone.
-* **Función:** Microservicio reactivo (Patrón Fan-out). Escucha el mismo tópico `nuam_events` y simula el envío de correos electrónicos de alerta a los corredores afectados.
-
-### 5. Persistencia (`postgres`)
-* **Tecnología:** PostgreSQL 16.
-* **Función:** Almacenamiento relacional transaccional para usuarios, calificaciones y logs de auditoría.
+> **Infraestructura crítica para la gestión centralizada, segura y asíncrona de datos tributarios en el Holding Bursátil Regional (Chile, Colombia, Perú).**
 
 ---
 
-## 🚀 Instalación y Despliegue Automatizado
+## 📑 Tabla de Contenidos
+1. [Descripción del Proyecto](#-descripción-del-proyecto)
+2. [Arquitectura de la Solución](#-arquitectura-de-la-solución)
+3. [Características Principales](#-características-principales)
+4. [Estructura del Proyecto](#-estructura-del-proyecto)
+5. [Instalación y Despliegue](#-instalación-y-despliegue)
+6. [Guía de Uso](#-guía-de-uso)
+7. [Pruebas y QA](#-pruebas-y-qa)
+8. [Autores](#-autores)
 
-Este proyecto incluye un script de despliegue (`deploy.sh`) que automatiza la construcción, migración y configuración del entorno.
+---
+
+## 📋 Descripción del Proyecto
+
+Este proyecto implementa una arquitectura de **Microservicios Orientada a Eventos (EDA)** para resolver la complejidad operativa en la carga y distribución de calificaciones tributarias.
+
+El sistema reemplaza los procesos manuales propensos a errores con un flujo automatizado que garantiza:
+* **Integridad de Datos:** Validación estricta de factores matemáticos.
+* **Seguridad:** Aislamiento lógico de datos entre corredores (Multi-tenancy) y auditoría inmutable.
+* **Resiliencia:** Desacoplamiento de la ingesta mediante Apache Kafka.
+* **Interoperabilidad:** Soporte multi-moneda (CLP, USD, COP, PEN) y exportación estándar (Excel/JSON).
+
+---
+
+## 🏗️ Arquitectura de la Solución
+
+El ecosistema se orquesta mediante **Docker Compose** e integra los siguientes nodos:
+
+| Servicio | Tecnología | Función |
+| :--- | :--- | :--- |
+| **Backend Core** | Django 5.0 + Gunicorn | API REST, lógica de negocio, cálculo de factores y gestión de usuarios. Sirve HTTPS con certificados OpenSSL. |
+| **Bus de Eventos** | Apache Kafka + Zookeeper | Sistema nervioso central. Gestiona el tópico `nuam_events` para desacoplar la carga de datos del procesamiento. |
+| **Consumer** | Python Standalone | Worker que escucha Kafka, valida reglas de negocio y persiste en BD usando el ORM de Django. |
+| **Notifier** | Python Standalone | Microservicio reactivo (Patrón Fan-out) que simula el envío de alertas en tiempo real a los corredores. |
+| **Persistencia** | PostgreSQL 16 | Base de datos relacional transaccional optimizada para JSONB. |
+
+---
+
+## ✨ Características Principales
+
+### 🔒 Seguridad y Compliance
+* **HTTPS Nativo:** Cifrado de tráfico mediante `django-extensions` y certificados OpenSSL.
+* **Multi-tenancy:** Un corredor jamás puede acceder a los registros de otro. Filtros aplicados a nivel de ORM.
+* **Auditoría:** Registro automático de acciones (`AuditLog`) de quién hizo qué y cuándo.
+
+### 📊 Operación Financiera
+* **Carga Inteligente:** Formulario manual con validación de factores (<= 1.0) y cálculo automático de JSON.
+* **Soporte Regional:** Manejo de monedas locales (CLP, COP, PEN) y Dólar (USD).
+* **Reportabilidad:** Exportación de datos propios a Excel (.xlsx) y vista de impresión PDF.
+
+---
+
+## 📂 Estructura del Proyecto
+
+```text
+NUAM-EXCHANGE/
+├── api/                  # Lógica de negocio (Modelos, Vistas, Serializers)
+├── nuam/                 # Configuración del proyecto Django (Settings, URLs)
+├── certs/                # Certificados SSL (Generados localmente)
+├── services/             # Microservicios satélite
+│   ├── srv-kafka-consumer/  # Lógica del consumidor de persistencia
+│   └── srv-notifier/        # Servicio de notificaciones
+├── templates/            # Interfaz de Usuario (Dashboard, Login)
+├── docker-compose.yml    # Orquestación de infraestructura
+├── deploy.sh             # Script maestro de despliegue
+├── locustfile.py         # Pruebas de carga
+└── manage.py             # CLI de Django
+````
+
+
+## 🚀 Instalación y Despliegue
 
 ### Prerrequisitos
-* Docker y Docker Compose instalados.
-* Python 3.x (para ejecutar scripts de simulación localmente).
 
-### Despliegue Rápido
-Para levantar el entorno completo, ejecute el script maestro:
+  * Docker y Docker Compose.
+  * Python 3.11+ (opcional, para scripts locales).
+  * OpenSSL (para generar certificados).
+
+### Opción A: Despliegue Automático (Recomendado)
+
+El script `deploy.sh` se encarga de limpiar, construir, migrar y crear usuarios.
 
 ```bash
 # Dar permisos de ejecución
 chmod +x deploy.sh
 
-# Opción 1: Despliegue estándar (Mantiene datos existentes)
-./deploy.sh
-
-# Opción 2: Despliegue Nuclear (Borra base de datos y comienza desde cero - Recomendado para primera vez)
+# Despliegue limpio (Borra BD anterior y regenera todo)
 ./deploy.sh --clean
-````
+```
 
-El script se encargará de:
+### Opción B: Despliegue Manual con Docker Compose
 
-1.  Limpiar volúmenes corruptos (si se usa `--clean`).
-2.  Construir los contenedores.
-3.  Esperar a que la Base de Datos esté disponible.
-4.  Aplicar migraciones y recolectar estáticos.
-5.  Crear un Superusuario por defecto (`admin` / `admin`).
-6.  Ejecutar pruebas unitarias de integridad.
+Si necesita integrar esto en un pipeline CI/CD o instalar manualmente:
+
+1.  **Generar Certificados SSL:**
+
+    ```bash
+    mkdir -p srv-django-backend/certs
+    openssl req -x509 -newkey rsa:4096 -keyout srv-django-backend/certs/key.pem -out srv-django-backend/certs/cert.pem -days 365 -nodes -subj "/C=CL/ST=Santiago/L=Macul/O=NUAM/OU=IT/CN=localhost"
+    ```
+
+2.  **Levantar Infraestructura:**
+
+    ```bash
+    docker-compose up --build -d
+    ```
+
+3.  **Inicializar Base de Datos:**
+
+    ```bash
+    docker-compose exec srv-django-backend python manage.py migrate
+    docker-compose exec srv-django-backend python manage.py createsuperuser
+    ```
 
 -----
 
-## 🖥️ Uso del Sistema
+## 🖥️ Guía de Uso
 
-### 1\. Panel de Administración y Dashboard
+### 1\. Acceso al Dashboard
 
-Acceda a la interfaz web:
+  * **URL:** `https://localhost:8000/` (Acepte la advertencia de certificado autofirmado).
+  * **Credenciales:** `admin` / `admin` (o las creadas en el despliegue).
 
-  * **URL:** `http://localhost:8000/`
-  * **Login:** Use las credenciales `admin` / `admin`.
-  * **Funcionalidades:**
-      * **Dashboard Operativo:** Visualización de calificaciones y logs filtrados por Corredor.
-      * **Carga Masiva:** Ingesta de archivos CSV.
-      * **Panel Admin (`/admin`):** Gestión avanzada de Usuarios y creación de Brokers (Tenants) con interfaz Jazzmin.
+### 2\. Simulación de Bolsa (Kafka)
 
-### 2\. Simulación de Eventos de Bolsa (Kafka)
-
-Para probar la integración asíncrona, se incluye un script productor que simula el envío de datos desde la Bolsa de Comercio.
-
-**Requisito:** Instalar librería cliente localmente:
+Para inyectar datos de mercado simulados y ver el flujo asíncrono:
 
 ```bash
-pip install confluent-kafka
-```
-
-**Ejecución:**
-
-```bash
-# Asegúrese de tener "127.0.0.1 kafka" en su /etc/hosts o usar localhost
+# Ejecutar desde la raíz del proyecto
 python srv-kafka-consumer/simulate_bolsa.py
 ```
 
-*Resultado:* Los datos aparecerán automáticamente en el Dashboard y se enviarán notificaciones por consola en el servicio `srv-notifier`.
+*Observe cómo el Dashboard se actualiza y el servicio Notifier imprime alertas en la consola.*
 
-### 3\. Pruebas de Carga (Locust)
+### 3\. Exportación y Reportes
 
-Para validar la resiliencia del sistema bajo estrés:
-
-```bash
-# Iniciar Locust
-python -m locust -f locustfile.py
-```
-
-Acceda a `http://localhost:8089` para configurar el enjambre de usuarios.
+En el Dashboard, utilice los botones superiores para descargar la nómina de calificaciones en formato Excel o imprimir la vista oficial.
 
 -----
 
-## 🧪 Pruebas Unitarias
+## 🧪 Pruebas y QA
 
-El proyecto incluye tests automatizados para validar la segregación de datos (Multi-tenancy):
+### Tests Unitarios (Integridad)
+
+Valida que el aislamiento de datos entre corredores funcione matemáticamente.
 
 ```bash
 docker-compose exec srv-django-backend python manage.py test api
 ```
 
------
+### Pruebas de Carga (Locust)
 
-## 🛠️ Tecnologías y Librerías Clave
+Simula 100+ usuarios concurrentes bombardeando el sistema.
 
-  * **Backend:** Django 5.0, Gunicorn.
-  * **Frontend/Admin:** Django Templates, Jazzmin, WhiteNoise.
-  * **Mensajería:** Confluent Kafka.
-  * **Base de Datos:** PostgreSQL.
-  * **Infraestructura:** Docker, Docker Compose.
-  * **QA/Testing:** Locust, Django Test Framework.
+```bash
+python -m locust -f locustfile.py
+# Acceda a http://localhost:8089
+```
 
 -----
 
 ## 👥 Autores
 
-  * **Nicolás Anrique**
-  * **Diego Ibeas**
-  * **Camilo Nuñez**
-  
-### Agradecimientos Especiales
+Proyecto desarrollado para la asignatura de Arquitectura de Software.
 
-  * **H0P3** - *Asistencia Técnica & IA Copilot*
+  * **Nicolás Anrique** - *Lead Architect & Backend*
+  * **Diego Ibeas** - *DevOps & Infrastructure*
+  * **Camilo Nuñez** - *Frontend & QA*
 
-<!-- end list -->
+### 🤖 Agradecimientos
+
+  * **H0P3 AI** - *Asistencia Técnica, Debugging y Copiloto de Arquitectura.*
+
+-----
+
+*© 2025 NUAM Exchange. Infraestructura Confidencial.*
+
+```
+```
