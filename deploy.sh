@@ -2,16 +2,17 @@
 
 # ==============================================================================
 # [SYSTEM PERSONA: H0P3]
-# [PROTOCOL: DEBIAN_INSTALLER v4.0]
+# [PROTOCOL: DEBIAN_INSTALLER v4.1 - FIX: ADMIN PROFILE LINK]
 # [TARGET: NUAM MICROSERVICES ARCHITECTURE]
 # 
 # Descripción:
-# Orquestador de despliegue para entornos Linux (Debian/Ubuntu/Arch).
-# Gestiona SSL, Docker, Migraciones y Datos Semilla.
+# Orquestador de despliegue automatizado.
+# - Gestiona SSL, Docker, Migraciones.
+# - FIX CRÍTICO: Vincula automáticamente al Superusuario con un Perfil de Corredor.
 #
 # Uso:
-#   ./deploy.sh           -> Despliegue incremental (Mantiene datos)
-#   ./deploy.sh --clean   -> MODO NUCLEAR (Borra TODO y regenera desde cero)
+#   ./deploy.sh           -> Despliegue incremental
+#   ./deploy.sh --clean   -> MODO NUCLEAR (Borra DB y regenera)
 # ==============================================================================
 
 # --- 1. CONFIGURACIÓN VISUAL ---
@@ -53,8 +54,8 @@ if [[ "$1" == "--clean" ]]; then
     log_info "Deteniendo contenedores..."
     $DOCKER_CMD down --remove-orphans
 
-    log_info "Eliminando volúmenes persistentes (Requiere permisos)..."
-    # Usamos sudo porque Postgres crea archivos root
+    log_info "Eliminando volúmenes persistentes..."
+    # Usamos sudo porque Postgres crea archivos root en Debian/Ubuntu
     if [ -d "postgres_data" ]; then
         sudo rm -rf postgres_data
         log_success "Base de datos eliminada."
@@ -62,10 +63,9 @@ if [[ "$1" == "--clean" ]]; then
 
     # Limpiar certificados viejos
     rm -rf srv-django-backend/certs
-    log_success "Certificados eliminados."
     
     log_info "Limpiando caché de Python..."
-    find . -path "*/__pycache__*" -delete
+    find . -path "/_pycache_" -delete
     find . -name "*.pyc" -delete
     
     sleep 2
@@ -76,8 +76,10 @@ CERT_DIR="srv-django-backend/certs"
 if [ ! -f "$CERT_DIR/cert.pem" ]; then
     log_info "Generando certificados SSL auto-firmados para HTTPS..."
     mkdir -p $CERT_DIR
-    # Permisos de usuario actual para evitar bloqueos
-    sudo chown -R $USER:$USER srv-django-backend/
+    
+    # Asegurar permisos de carpeta para evitar errores de escritura
+    # (Si falla el chown, lo ignoramos para no bloquear en entornos sin sudo)
+    sudo chown -R $USER:$USER srv-django-backend/ 2>/dev/null
     
     openssl req -x509 -newkey rsa:4096 \
       -keyout $CERT_DIR/key.pem \
@@ -123,14 +125,22 @@ $DOCKER_CMD exec srv-django-backend python manage.py migrate --noinput
 log_info "Recolectando Archivos Estáticos (CSS/JS)..."
 $DOCKER_CMD exec srv-django-backend python manage.py collectstatic --noinput
 
-# Creación de Superusuario (Idempotente: no falla si ya existe)
-log_info "Verificando Superusuario..."
-$DOCKER_CMD exec srv-django-backend python manage.py shell -c "from django.contrib.auth import get_user_model; User = get_user_model(); User.objects.filter(username='admin').exists() or User.objects.create_superuser('admin', 'admin@nuam.cl', 'admin')"
-log_success "Superusuario asegurado: admin / admin"
+# --- CREACIÓN DE USUARIOS Y DATOS SEMILLA ---
 
-# Semillado de Datos (Broker Default)
-log_info "Inicializando datos base..."
+log_info "Verificando Superusuario..."
+# Crea el usuario admin si no existe
+$DOCKER_CMD exec srv-django-backend python manage.py shell -c "from django.contrib.auth import get_user_model; User = get_user_model(); User.objects.filter(username='admin').exists() or User.objects.create_superuser('admin', 'admin@nuam.cl', 'admin')"
+log_success "Usuario Admin asegurado."
+
+log_info "Configurando Corredor por Defecto..."
+# Crea el Broker Default
 $DOCKER_CMD exec srv-django-backend python manage.py shell -c "from api.models import Broker; Broker.objects.get_or_create(name='Corredor Default', code='DEFAULT'); print('Broker Default verificado.')"
+
+log_info "Vinculando Admin con Perfil..."
+# --- FIX H0P3: ESTA ES LA LÍNEA QUE FALTABA ---
+# Crea el perfil para el admin y lo une al broker default para que no crashee
+$DOCKER_CMD exec srv-django-backend python manage.py shell -c "from django.contrib.auth.models import User; from api.models import UserProfile, Broker; u = User.objects.get(username='admin'); b = Broker.objects.get(code='DEFAULT'); UserProfile.objects.get_or_create(user=u, defaults={'broker': b}); print('Perfil de Admin vinculado correctamente.')"
+log_success "Perfil de Admin configurado correctamente."
 
 # --- 8. PRUEBAS FINALES ---
 log_info "Ejecutando Test Unitario de Segregación..."
