@@ -89,6 +89,15 @@ NUAM-EXCHANGE/
   * Python 3.11+ (opcional, para scripts locales).
   * OpenSSL (para generar certificados).
 
+### Obtener el Repositorio
+
+Antes de comenzar, clona el proyecto y entra en el directorio:
+
+```bash
+git clone https://github.com/ToaBollua/BrokerNUAM-INACAP #URL del repositorio
+cd BrokerNUAM-INACAP #Nombre del directorio
+```
+
 ### Opción A: Despliegue Automático (Recomendado)
 
 El script `deploy.sh` se encarga de limpiar, construir, migrar y crear usuarios.
