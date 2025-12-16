@@ -109,13 +109,13 @@ BrokerNUAM-INACAP/
 │       ├── cert.pem
 │       └── key.pem
 │
-├── srv-kafka-consumer/        # Microservicio de ingesta: consume eventos Kafka y persiste en Postgres vía ORM Django
+├── srv-kafka-consumer/       # Microservicio de ingesta: consume eventos Kafka y persiste en Postgres vía ORM Django
 │   ├── Dockerfile            # Imagen del consumidor (incluye dependencias para Postgres/Kafka)
 │   ├── requirements.txt      # Dependencias (confluent-kafka, Django, dj-database-url, etc.)
 │   ├── consumer.py           # Suscriptor a tópico 'nuam_events': upsert de TaxQualification + creación de AuditLog
 │   └── simulate_bolsa.py     # Generador de eventos de ejemplo hacia Kafka (simulación “bolsa”)
 │
-└── srv-notifier/              # Microservicio de notificación: lee eventos Kafka y ejecuta acción (simulada)
+└── srv-notifier/             # Microservicio de notificación: lee eventos Kafka y ejecuta acción (simulada)
     ├── Dockerfile            # Imagen liviana (confluent-kafka)
     └── main.py               # Consumer del tópico 'nuam_events' (simula envío de email/alerta)
 ````
