@@ -66,18 +66,58 @@ El ecosistema se orquesta mediante **Docker Compose** e integra los siguientes n
 ## 📂 Estructura del Proyecto
 
 ```text
-NUAM-EXCHANGE/
-├── api/                  # Lógica de negocio (Modelos, Vistas, Serializers)
-├── nuam/                 # Configuración del proyecto Django (Settings, URLs)
-├── certs/                # Certificados SSL (Generados localmente)
-├── services/             # Microservicios satélite
-│   ├── srv-kafka-consumer/  # Lógica del consumidor de persistencia
-│   └── srv-notifier/        # Servicio de notificaciones
-├── templates/            # Interfaz de Usuario (Dashboard, Login)
-├── docker-compose.yml    # Orquestación de infraestructura
-├── deploy.sh             # Script maestro de despliegue
-├── locustfile.py         # Pruebas de carga
-└── manage.py             # CLI de Django
+BrokerNUAM-INACAP/
+├── README.md                 # Guía de uso/instalación y descripción general del sistema
+├── .env.example              # Plantilla de variables de entorno (DB, Django, Kafka, DEBUG, etc.)
+├── docker-compose.yml        # Orquestación completa: Postgres + Kafka/Zookeeper + Backend Django + Consumer + Notifier
+├── deploy.sh                 # Script maestro: genera SSL, levanta contenedores, мигра BD, collectstatic, crea admin/broker, ejecuta tests
+├── locustfile.py             # Pruebas de carga (login + navegación Dashboard y Admin)
+├── link.txt                  # Enlace a documentación externa (presentación/entregable)
+├── package-lock.json         # Artefacto Node (placeholder); no es núcleo del backend Python/Django
+│
+├── srv-django-backend/       # Servicio principal (Django): UI + lógica de negocio + persistencia
+│   ├── Dockerfile            # Imagen del backend (Python + dependencias + gunicorn)
+│   ├── requirements.txt      # Dependencias (Django, dj-database-url, Jazzmin, WhiteNoise, import-export, etc.)
+│   ├── manage.py             # CLI Django (migrate, createsuperuser, collectstatic, etc.)
+│   │
+│   ├── nuam/                 # Configuración del proyecto Django (settings, urls, wsgi/asgi)
+│   │   ├── settings.py       # Config por variables de entorno (DB vía DATABASE_URL, estáticos, Jazzmin, login redirects, etc.)
+│   │   ├── urls.py           # Enrutamiento principal del proyecto
+│   │   ├── wsgi.py / asgi.py # Entrypoints para servidores WSGI/ASGI
+│   │   └── __init__.py
+│   │
+│   ├── api/                  # App de negocio (core): multi-tenancy, modelos, vistas, formularios, exportación
+│   │   ├── models.py         # Entidades clave: Broker (tenant), UserProfile (asignación), TaxQualification, AuditLog
+│   │   ├── views.py          # Dashboard segregado, ingreso manual, carga CSV, exportación XLSX, auditoría
+│   │   ├── forms.py          # Formularios con validaciones y armado de payload JSON (financial_data)
+│   │   ├── resources.py      # Exportador XLSX (django-import-export) para TaxQualification
+│   │   ├── urls.py           # Rutas del módulo (home, upload-csv, export, entry/manual, etc.)
+│   │   ├── admin.py          # Registro y configuración de modelos en Django Admin
+│   │   └── migrations/       # Versionado del esquema de BD (evolución de modelos)
+│   │
+│   ├── templates/            # Vistas HTML (UI): login, dashboard, formularios de carga/ingreso
+│   │   ├── base.html         # Layout base (estructura común)
+│   │   ├── index.html        # Dashboard principal
+│   │   ├── login.html        # Autenticación
+│   │   ├── manual_entry.html # Formulario de ingreso manual
+│   │   └── upload_csv.html   # Carga masiva por CSV
+│   │
+│   ├── static/               # Recursos estáticos (CSS/JS)
+│   │   └── css/base.css      # Estilos base de la interfaz
+│   │
+│   └── certs/                # Certificados SSL locales (auto-firmados; generados/gestionados por deploy.sh)
+│       ├── cert.pem
+│       └── key.pem
+│
+├── srv-kafka-consumer/        # Microservicio de ingesta: consume eventos Kafka y persiste en Postgres vía ORM Django
+│   ├── Dockerfile            # Imagen del consumidor (incluye dependencias para Postgres/Kafka)
+│   ├── requirements.txt      # Dependencias (confluent-kafka, Django, dj-database-url, etc.)
+│   ├── consumer.py           # Suscriptor a tópico 'nuam_events': upsert de TaxQualification + creación de AuditLog
+│   └── simulate_bolsa.py     # Generador de eventos de ejemplo hacia Kafka (simulación “bolsa”)
+│
+└── srv-notifier/              # Microservicio de notificación: lee eventos Kafka y ejecuta acción (simulada)
+    ├── Dockerfile            # Imagen liviana (confluent-kafka)
+    └── main.py               # Consumer del tópico 'nuam_events' (simula envío de email/alerta)
 ````
 
 
@@ -183,7 +223,7 @@ python -m locust -f locustfile.py
 
 ## 👥 Autores
 
-Proyecto desarrollado para la asignatura de Arquitectura de Software.
+Proyecto desarrollado para la asignatura de Programación Back End.
 
   * **Nicolás Anrique** - *Lead Architect & Backend*
   * **Diego Ibeas** - *DevOps & Infrastructure*
