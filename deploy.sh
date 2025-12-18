@@ -217,26 +217,33 @@ fi
 
 # --- 6. ESPERA REAL (POSTGRES READY) ---
 log_info "Esperando que la Base de Datos (Postgres) esté lista..."
-PG_CONTAINER="postgres"   # <-- CORREGIDO: antes era "postgres_db"
+
+# Nota:
+# - En Docker Compose, 'exec' usa el NOMBRE DEL SERVICIO (docker-compose.yml), no el nombre del contenedor.
+# - En este proyecto el servicio es: postgres (aunque el contenedor se llame postgres_db).
+PG_SERVICE="postgres"
 
 for i in {1..240}; do
-    if $DOCKER_CMD exec -T "$PG_CONTAINER" pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null 2>&1; then
+    # Puede fallar si el contenedor aún no está listo o si todavía está iniciando; en ambos casos seguimos esperando.
+    if $DOCKER_CMD exec -T "$PG_SERVICE" pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null 2>&1; then
         log_success "Postgres listo para aceptar conexiones."
         break
     fi
 
-    if ! $DOCKER_CMD ps --format '{{.Names}}' | grep -qx "$PG_CONTAINER"; then
-        log_error "El contenedor $PG_CONTAINER no está corriendo. Revisa: $DOCKER_CMD logs --tail 200 $PG_CONTAINER"
-    fi
-
+    # Evitar abortar prematuramente: después de un --clean es normal que el servicio tarde en pasar a 'running'.
     if (( i % 10 == 0 )); then
+        # Mostrar un estado útil cada 10 intentos (sin fallar si el comando aún no entrega info).
+        STATUS_LINE="$($DOCKER_CMD ps "$PG_SERVICE" --format '{{.Name}} {{.State}} {{.Status}}' 2>/dev/null | head -n 1 || true)"
+        if [ -n "$STATUS_LINE" ]; then
+            log_info "Estado Postgres: $STATUS_LINE"
+        fi
         log_info "Postgres aún no está listo... ($i/240)"
     fi
 
     sleep 2
 
     if [ "$i" -eq 240 ]; then
-        log_error "Postgres no estuvo listo a tiempo. Revisa: $DOCKER_CMD logs --tail 200 $PG_CONTAINER"
+        log_error "Postgres no estuvo listo a tiempo. Revisa: $DOCKER_CMD logs --tail 200 $PG_SERVICE"
     fi
 done
 
